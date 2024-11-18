@@ -78,6 +78,7 @@
         - average pooling for final output
     - multiscale CNN for protein
     - concat and MLP for DTA prediction
+    - 
   
 ## Data
 
