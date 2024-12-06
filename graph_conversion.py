@@ -5,7 +5,7 @@ from rdkit import Chem
 
 resname_to_fasta = {"ALA": 'A', "CYS": 'C', "ASP": 'D', "GLU": 'E', "PHE": 'F', "GLY": 'G', "HIS": 'H', "ILE": 'I',
                     "LYS": 'K', "LEU": 'L', "MET": 'M', "ASN": 'N', "PYL": 'O', "PRO": 'P', "GLN": 'Q', "ARG": 'R',
-                    "SER": 'S', "THR": 'T', "SEC": 'U', "VAL": 'V', "TRP": 'W', "TYR": 'Y'}
+                    "SER": 'S', "THR": 'T', "SEC": 'U', "VAL": 'V', "TRP": 'W', "TYR": 'Y', "any": 'X'}
 
 
 def atom_features(atom):
@@ -67,7 +67,7 @@ def cif_to_graph(cif_file, threshold=5.0):
             for residue in chain:
                 if 'CA' in residue:  # Use alpha-carbon to represent the residue
                     residues.append(
-                        np.array(one_of_k_encoding(resname_to_fasta[residue.resname], resname_to_fasta.values()),
+                        np.array(one_of_k_encoding(resname_to_fasta.get(residue.resname, 'X'), resname_to_fasta.values()),
                                  dtype=float))
                     ca_coords.append(residue['CA'].coord)
 
@@ -78,10 +78,13 @@ def cif_to_graph(cif_file, threshold=5.0):
     # get adjacency matrix from distances without duplicate edges
     adjacency = distances < threshold
     adjacency = adjacency.astype(float)
-    adjacency *= np.tri(*adjacency.shape, k=-1)
+    adjacency *= np.tri(*adjacency.shape, k=-1) # remove double edges
+    np.fill_diagonal(adjacency[1:, :], 1) # make sure neighbors are actually connected
 
     # get edge_index and edge weights
     edge_index = np.stack(np.where(adjacency)).T
     weights = distances[edge_index[:, 0], edge_index[:, 1]]
+
+    assert all(np.diag(adjacency, k=-1))
 
     return len(residues), residues, edge_index, weights
