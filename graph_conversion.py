@@ -67,8 +67,9 @@ def cif_to_graph(cif_file, threshold=5.0):
             for residue in chain:
                 if 'CA' in residue:  # Use alpha-carbon to represent the residue
                     residues.append(
-                        np.array(one_of_k_encoding(resname_to_fasta.get(residue.resname, 'X'), resname_to_fasta.values()),
-                                 dtype=float))
+                        np.array(
+                            one_of_k_encoding(resname_to_fasta.get(residue.resname, 'X'), resname_to_fasta.values()),
+                            dtype=float))
                     ca_coords.append(residue['CA'].coord)
 
     # Calculate pairwise distances between alpha-carbons
@@ -78,13 +79,15 @@ def cif_to_graph(cif_file, threshold=5.0):
     # get adjacency matrix from distances without duplicate edges
     adjacency = distances < threshold
     adjacency = adjacency.astype(float)
-    adjacency *= np.tri(*adjacency.shape, k=-1) # remove double edges
-    np.fill_diagonal(adjacency[1:, :], 1) # make sure neighbors are actually connected
+    adjacency *= np.tri(*adjacency.shape, k=-1)  # remove double edges
+    np.fill_diagonal(adjacency[1:, :], 1)  # make sure neighbors are actually connected
 
     # get edge_index and edge weights
     edge_index = np.stack(np.where(adjacency)).T
     weights = distances[edge_index[:, 0], edge_index[:, 1]]
 
     assert all(np.diag(adjacency, k=-1))
+
+    print(f"converted {cif_file}")
 
     return len(residues), residues, edge_index, weights
