@@ -17,7 +17,7 @@ from graph_conversion import cif_to_graph, smile_to_graph
 def collate(data_list):
     batchA = Batch.from_data_list([data[0] for data in data_list])
     batchB = Batch.from_data_list([data[1] for data in data_list])
-    batchC = torch.tensor([data[2] for data in data_list])
+    batchC = torch.tensor([data[2] for data in data_list], dtype=torch.float32)
     return batchA, batchB, batchC
 
 
@@ -35,10 +35,10 @@ class GraphPairDataset(Dataset):
             idx = idx.tolist()
 
         drug, prot, affinity = self.pairs[idx]
-        GCNData_Drug = self.drug_graphs[drug]
-        GCNData_Prot = self.prot_graphs[prot]
+        drug = self.drug_graphs[drug]
+        prot = self.prot_graphs[prot]
 
-        return GCNData_Drug, GCNData_Prot, affinity
+        return drug, prot, affinity
 
 
 def create_dataloader(batch_size=64):
@@ -111,7 +111,7 @@ def create_dataloader(batch_size=64):
     test_dataset = GraphPairDataset(test_data, drug_graphs, prot_graphs)
 
     train_loader = DataLoader(dataset=train_dataset, batch_size=batch_size, shuffle=True, collate_fn=collate)
-    test_loader = DataLoader(dataset=test_dataset, batch_size=batch_size, shuffle=True, collate_fn=collate)
+    test_loader = DataLoader(dataset=test_dataset, batch_size=batch_size, shuffle=False, collate_fn=collate)
 
     return train_loader, test_loader
 
