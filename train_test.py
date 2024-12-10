@@ -1,14 +1,16 @@
-from create_data import create_dataloader
+import copy
 
 import torch
 import torch.nn.functional as F
 import tqdm
-import copy
+
+from create_data import create_dataloader
+from models import GFT_linear_attention
 
 
 # TODO: k-fold
 
-def train(model, train_loader, device, n_splits, learn_rate, epochs):
+def train(model, train_loader, device, learn_rate=0.001, epochs=100, n_splits=1):
     model.train()
 
     opt = torch.optim.Adam(model.parameters(), lr=learn_rate)
@@ -31,7 +33,7 @@ def train(model, train_loader, device, n_splits, learn_rate, epochs):
 
             pred = model(drug, prot)
 
-            loss = F.l1(pred, y)
+            loss = F.l1_loss(pred, y)
             loss.backward()
 
             total_loss += loss.item()
@@ -39,7 +41,7 @@ def train(model, train_loader, device, n_splits, learn_rate, epochs):
 
         avg_loss = total_loss / count
 
-        if avg_loss < loss:
+        if avg_loss < best_loss:
             best_loss = avg_loss
             best_epoch = epoch
             best_model = copy.deepcopy(model)
@@ -66,8 +68,16 @@ def evaluate(model, dataloader, device):
     return loss, preds
 
 
-
 if __name__ == '__main__':
     train_loader, test_loader = create_dataloader()
 
+    for drugs, prots, y in train_loader:
+        drug_dim = drugs.x.shape[1]
+        prot_dim = prots.x.shape[1]
+        break
+
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+    model = GFT_linear_attention(drug_dim, prot_dim, 64)
+
+    train(model, train_loader, device)
