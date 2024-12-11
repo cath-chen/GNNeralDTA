@@ -3,17 +3,21 @@ import copy
 import torch
 import torch.nn.functional as F
 import tqdm
+from torch import nn
 
 from create_data import create_dataloader
 from models import AttentionGNNeral
+from utils import *
 
 
 # TODO: k-fold
 
-def train(model, train_loader, device, learn_rate=0.001, epochs=100, n_splits=1):
+def train(model, train_loader, device, learn_rate=0.01, epochs=100, n_splits=1):
     model.train()
 
     opt = torch.optim.Adam(model.parameters(), lr=learn_rate)
+
+    loss_fn = nn.MSELoss()
 
     model.to(device)
     best_loss = 2 ** 16
@@ -25,19 +29,22 @@ def train(model, train_loader, device, learn_rate=0.001, epochs=100, n_splits=1)
         total_loss = 0
         count = 0
 
-        for drug, prot, y in train_loader:
+        for drug, prot, y in (pbar2 := tqdm.tqdm(train_loader, total=len(train_loader), unit='batches', leave=False)):
             opt.zero_grad()
 
             drug = drug.to(device)
             prot = prot.to(device)
+            y = y.view(-1, 1).to(device)
 
             pred = model(drug, prot)
 
-            loss = F.l1_loss(pred, y)
+            loss = loss_fn(pred, y)
             loss.backward()
 
             total_loss += loss.item()
             count += 1
+
+            pbar2.set_description(f'loss={loss.item():.5f} rmse={rmse(pred, y)}')
 
         avg_loss = total_loss / count
 
@@ -46,7 +53,7 @@ def train(model, train_loader, device, learn_rate=0.001, epochs=100, n_splits=1)
             best_epoch = epoch
             best_model = copy.deepcopy(model)
 
-        pbar.set_description(f'avg_loss={total_loss / count:.3f} best_loss={best_loss:.3f} best_epoch={best_epoch:4}')
+        pbar.set_description(f'avg_loss={total_loss / count:.5f} best_loss={best_loss:.5f} best_epoch={best_epoch:4}')
 
     return best_model
 
@@ -69,7 +76,7 @@ def evaluate(model, dataloader, device):
 
 
 if __name__ == '__main__':
-    train_loader, test_loader = create_dataloader()
+    train_loader, test_loader = create_dataloader(batch_size=128)
 
     for drugs, prots, y in train_loader:
         drug_dim = drugs.x.shape[1]
@@ -78,6 +85,6 @@ if __name__ == '__main__':
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-    model = AttentionGNNeral(drug_dim, prot_dim, 50)
+    model = AttentionGNNeral(drug_dim, prot_dim, 50, time=False, attention='cross')
 
     train(model, train_loader, device)
