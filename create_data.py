@@ -2,7 +2,6 @@ import json
 import os
 import pickle
 from collections import OrderedDict
-from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import numpy as np
 import torch
@@ -42,7 +41,6 @@ class GraphPairDataset(Dataset):
 
 
 def create_dataloader(batch_size=64):
-    all_prots = []
     print('convert data from DeepDTA for davis')
     fpath = 'data/davis/'
     train_fold = json.load(open(fpath + "folds/train_fold_setting1.txt"))
@@ -89,12 +87,7 @@ def create_dataloader(batch_size=64):
             prots = pickle.load(f)
         print(f"loaded {len(prots)} prots")
     else:
-        prots = {}
-        with ThreadPoolExecutor() as executor:
-            future_to_key = {executor.submit(cif_to_graph, f"pdb_files/{prot}.cif"): prot for prot in proteins.keys()}
-            for future in as_completed(future_to_key):
-                key = future_to_key[future]
-                prots[key] = future.result()
+        prots = {prot: cif_to_graph(f"pdb_files/{prot}.cif", sequence) for prot, sequence in proteins.items()}
         with open('data/prots.pkl', 'wb') as f:
             pickle.dump(prots, f)
         print(f"converted {len(prots)} prots")

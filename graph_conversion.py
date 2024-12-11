@@ -1,7 +1,8 @@
 import networkx as nx
 import numpy as np
-from Bio.PDB import MMCIFParser
+from Bio.PDB import FastMMCIFParser
 from rdkit import Chem
+import json
 
 resname_to_fasta = {"ALA": 'A', "CYS": 'C', "ASP": 'D', "GLU": 'E', "PHE": 'F', "GLY": 'G', "HIS": 'H', "ILE": 'I',
                     "LYS": 'K', "LEU": 'L', "MET": 'M', "ASN": 'N', "PYL": 'O', "PRO": 'P', "GLN": 'Q', "ARG": 'R',
@@ -54,27 +55,44 @@ def smile_to_graph(smile):
     return c_size, features, edge_index
 
 
-def cif_to_graph(cif_file, threshold=5.0):
-    parser = MMCIFParser()
+def cif_to_graph(cif_file, sequence = None, threshold=8.0):
+    parser = FastMMCIFParser()
     structure = parser.get_structure("protein", cif_file)
 
     # Extract residues and their alpha-carbon (CA) coordinates
     residues = []
-    ca_coords = []
+    coords = []
 
     for model in structure:
         for chain in model:
             for residue in chain:
+                residues.append(resname_to_fasta.get(residue.resname, 'X'))
                 if 'CA' in residue:  # Use alpha-carbon to represent the residue
-                    residues.append(
-                        np.array(
-                            one_of_k_encoding(resname_to_fasta.get(residue.resname, 'X'), resname_to_fasta.values()),
-                            dtype=float))
-                    ca_coords.append(residue['CA'].coord)
+                    coords.append(residue['CA'].coord)
+                else:
+                    for atom in residue:
+                        coords.append(atom.coord)
+                        break
+
+    skip_coords = False
+    residues = ''.join(residues)
+    if sequence is not None:
+        if sequence in residues:
+            start = residues.index(sequence)
+            end = start + len(sequence)
+            coords = coords[start:end]
+        else:
+            skip_coords = True
+        residues = sequence
+
+    residues = [np.array(one_of_k_encoding(residue, resname_to_fasta.values()), dtype=float) for residue in residues]
 
     # Calculate pairwise distances between alpha-carbons
-    ca_coords = np.array(ca_coords)
-    distances = np.linalg.norm(ca_coords[:, np.newaxis, :] - ca_coords[np.newaxis, :, :], axis=-1)
+    if not skip_coords:
+        coords = np.array(coords)
+        distances = np.linalg.norm(coords[:, np.newaxis, :] - coords[np.newaxis, :, :], axis=-1)
+    else:
+        distances = np.ones((len(residues), len(residues))) * threshold + 1
 
     # get adjacency matrix from distances without duplicate edges
     adjacency = distances < threshold
@@ -84,10 +102,16 @@ def cif_to_graph(cif_file, threshold=5.0):
 
     # get edge_index and edge weights
     edge_index = np.stack(np.where(adjacency)).T
-    weights = distances[edge_index[:, 0], edge_index[:, 1]]
+    if not skip_coords:
+        weights = distances[edge_index[:, 0], edge_index[:, 1]]
+    else:
+        weights = np.ones(len(residues) - 1) * 3.8
 
     assert all(np.diag(adjacency, k=-1))
 
-    print(f"converted {cif_file}")
+    if not skip_coords:
+        print(f"converted {cif_file}")
+    else:
+        print(f"converted {cif_file} without coords")
 
     return len(residues), residues, edge_index, weights
