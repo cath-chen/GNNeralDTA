@@ -12,7 +12,7 @@ from utils import *
 
 # TODO: k-fold
 
-def train(model, train_loader, device, learn_rate=0.1, epochs=100, n_splits=1):
+def train(model, train_loader, device, learn_rate=0.01, epochs=100, n_splits=1):
     model.train()
 
     opt = torch.optim.Adam(model.parameters(), lr=learn_rate)
@@ -40,6 +40,7 @@ def train(model, train_loader, device, learn_rate=0.1, epochs=100, n_splits=1):
 
             loss = loss_fn(pred, y)
             loss.backward()
+            opt.step()
 
             total_loss += loss.item()
             count += 1
@@ -85,6 +86,6 @@ if __name__ == '__main__':
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-    model = AttentionGNNeral(drug_dim, prot_dim, 50, time=False, attention='cross')
+    model = AttentionGNNeral(drug_dim, prot_dim, 50, time=False, attention='linear')
 
     train(model, train_loader, device)

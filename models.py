@@ -26,6 +26,7 @@ class GNN(nn.Module):
 
         return x
 
+
 class LinkAttention(nn.Module):
     def __init__(self, input_dim, n_heads):
         super(LinkAttention, self).__init__()
@@ -65,7 +66,6 @@ class linear_attention(nn.Module):
         attention = torch.cat((drug_attention, prot_attention, comb_attention), dim=1)
 
         return attention
-
 
 
 class cross_attention(nn.Module):
@@ -110,7 +110,13 @@ class AttentionGNNeral(nn.Module):
             num_embeddings = 3
 
         self.classifier = nn.Sequential(
-            nn.Linear(attention_dim * num_embeddings, 256),
+            nn.Linear(attention_dim * num_embeddings, 1024),
+            nn.ReLU(),
+            nn.Dropout(fnn_dropout),
+            nn.Linear(1024, 512),
+            nn.ReLU(),
+            nn.Dropout(fnn_dropout),
+            nn.Linear(512, 256),
             nn.ReLU(),
             nn.Dropout(fnn_dropout),
             nn.Linear(256, 1),
