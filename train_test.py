@@ -5,7 +5,7 @@ import torch.nn.functional as F
 import tqdm
 
 from create_data import create_dataloader
-from models import GFT_linear_attention
+from models import AttentionGNNeral
 
 
 # TODO: k-fold
@@ -78,6 +78,6 @@ if __name__ == '__main__':
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-    model = GFT_linear_attention(drug_dim, prot_dim, 64)
+    model = AttentionGNNeral(drug_dim, prot_dim, 50)
 
     train(model, train_loader, device)
