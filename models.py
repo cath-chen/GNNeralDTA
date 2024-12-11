@@ -98,9 +98,9 @@ class AttentionGNNeral(nn.Module):
 
         self.time = time
 
-        self.drug_gnn = GNN(drug_dim, attention_dim, hidden_dims=[128] * 4, dropout=gnn_dropout,
+        self.drug_gnn = GNN(drug_dim, attention_dim, hidden_dims=[64] * 0, dropout=gnn_dropout,
                             operator=gnn.GraphConv)
-        self.prot_gnn = GNN(prot_dim, attention_dim, hidden_dims=[64] * 2, dropout=gnn_dropout,
+        self.prot_gnn = GNN(prot_dim, attention_dim, hidden_dims=[64] * 0, dropout=gnn_dropout,
                             operator=gnn.GraphConv)
 
         assert attention in ['cross', 'linear']
@@ -112,10 +112,7 @@ class AttentionGNNeral(nn.Module):
             num_embeddings = 3
 
         self.classifier = nn.Sequential(
-            nn.Linear(attention_dim * num_embeddings, 1024),
-            nn.ReLU(),
-            nn.Dropout(fnn_dropout),
-            nn.Linear(1024, 256),
+            nn.Linear(attention_dim * num_embeddings, 256),
             nn.ReLU(),
             nn.Dropout(fnn_dropout),
             nn.Linear(256, 1),
