@@ -85,6 +85,6 @@ if __name__ == '__main__':
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-    model = AttentionGNNeral(drug_dim, prot_dim, 50, time=False, attention='linear')
+    model = AttentionGNNeral(drug_dim, prot_dim, 50, time=False, attention='cross')
 
     train(model, train_loader, device)
