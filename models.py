@@ -98,10 +98,8 @@ class AttentionGNNeral(nn.Module):
 
         self.time = time
 
-        self.drug_gnn = GNN(drug_dim, attention_dim, hidden_dims=[64] * 0, dropout=gnn_dropout,
-                            operator=gnn.GraphConv)
-        self.prot_gnn = GNN(prot_dim, attention_dim, hidden_dims=[64] * 0, dropout=gnn_dropout,
-                            operator=gnn.GraphConv)
+        self.drug_gnn = GNN(drug_dim, attention_dim, hidden_dims=[64] * 0, dropout=gnn_dropout)
+        self.prot_gnn = GNN(prot_dim, attention_dim, hidden_dims=[64] * 0, dropout=gnn_dropout)
 
         assert attention in ['cross', 'linear']
         if attention == 'cross':
