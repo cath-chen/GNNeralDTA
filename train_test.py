@@ -50,7 +50,7 @@ def train(model, train_loader, device, learn_rate=0.01, epochs=100, test_loader=
             total_loss += loss.item()
             count += 1
 
-            pbar2.set_description(f'mse={loss.item():8.3f} avg_mse={total_loss / count:8.3}')
+            pbar2.set_description(f'mse={loss.item():6.3f} avg_mse={total_loss / count:6.3}')
 
         loss = total_loss / count
 
@@ -65,7 +65,7 @@ def train(model, train_loader, device, learn_rate=0.01, epochs=100, test_loader=
                 best_loss = loss
 
             pbar.set_description(
-                f'loss={loss:10.5f} best=[epoch={best_epoch:4} loss={best_loss:8.3f} mse={best_mse:8.3f} ci={best_ci:8.3f}]')
+                f'loss={loss:6.3f} best=[epoch={best_epoch:3} loss={best_loss:6.3f} mse={best_mse:6.3f} ci={best_ci:6.3f}]')
 
         else:
             if loss < best_loss:
@@ -73,7 +73,7 @@ def train(model, train_loader, device, learn_rate=0.01, epochs=100, test_loader=
                 best_epoch = epoch
                 best_model = model.state_dict()
 
-            pbar.set_description(f'loss={loss:8.3f} best=[epoch={best_epoch + 1:4} loss={best_loss:8.3f}]')
+            pbar.set_description(f'loss={loss:6.3f} best=[epoch={best_epoch + 1:3} loss={best_loss:6.3f}]')
 
         if early_stop_epochs and epoch - best_epoch > early_stop_epochs:
             print(f"stopping early after {epochs} epochs")
