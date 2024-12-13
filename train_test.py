@@ -28,13 +28,15 @@ def train(model, train_loader, device, learn_rate=0.01, epochs=100, test_loader=
     best_epoch = 0
     best_model = model.state_dict()
 
-    for epoch in (pbar := tqdm.tqdm(range(epochs), total=epochs, unit='epochs', leave=False)):
+    pbar = tqdm.tqdm(range(epochs), total=epochs, unit='epochs', leave=False)
+    for epoch in pbar:
         model.train()
 
         total_loss = 0
         count = 0
 
-        for drug, prot, y in (pbar2 := tqdm.tqdm(train_loader, total=len(train_loader), unit='batches', leave=False)):
+        pbar2 = tqdm.tqdm(train_loader, total=len(train_loader), unit='batches', leave=False)
+        for drug, prot, y in pbar2:
             opt.zero_grad()
 
             drug = drug.to(device)
