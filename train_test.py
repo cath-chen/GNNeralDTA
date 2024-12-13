@@ -75,7 +75,7 @@ def train(model, train_loader, device, learn_rate=0.01, epochs=100, test_loader=
 
             pbar.set_description(f'loss={loss:6.3f} best=[epoch={best_epoch + 1:3} loss={best_loss:6.3f}]')
 
-        if early_stop_epochs and epoch - best_epoch > early_stop_epochs:
+        if early_stop_epochs and epoch - best_epoch >= early_stop_epochs:
             print(f"stopping early after {epoch} epochs")
             break
 
@@ -139,7 +139,7 @@ def hyperparam_tuning(drug_dim, prot_dim, train_loader, test_loader, device, epo
                             model = AttentionGNNeral(drug_dim, prot_dim, **model_config)
                             append_print(filename, str(model_config) + f" {learn_rate=}")
                             model_dict, results = train(model, train_loader, device, learn_rate=learn_rate,
-                                                        epochs=epochs, test_loader=test_loader, early_stop_epochs=20)
+                                                        epochs=epochs, test_loader=test_loader, early_stop_epochs=50)
                             append_print(filename, str(results))
                             if results['test_mse'] < best_mse:
                                 best_mse = results['test_mse']
