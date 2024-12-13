@@ -76,7 +76,7 @@ def train(model, train_loader, device, learn_rate=0.01, epochs=100, test_loader=
             pbar.set_description(f'loss={loss:6.3f} best=[epoch={best_epoch + 1:3} loss={best_loss:6.3f}]')
 
         if early_stop_epochs and epoch - best_epoch > early_stop_epochs:
-            print(f"stopping early after {epochs} epochs")
+            print(f"stopping early after {epoch} epochs")
             break
 
     end = time.time()
