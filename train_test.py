@@ -65,7 +65,7 @@ def train(model, train_loader, device, learn_rate=0.01, epochs=100, test_loader=
                 best_loss = loss
 
             pbar.set_description(
-                f'loss={loss:6.3f} best=[epoch={best_epoch:3} loss={best_loss:6.3f} mse={best_mse:6.3f} ci={best_ci:6.3f}]')
+                f'loss={loss:6.3f} test_mse={mse_score:6.3f} best=[epoch={best_epoch:3} loss={best_loss:6.3f} mse={best_mse:6.3f} ci={best_ci:6.3f}]')
 
         else:
             if loss < best_loss:
