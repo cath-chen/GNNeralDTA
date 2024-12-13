@@ -14,7 +14,7 @@ from create_data import create_dataloader
 from models import AttentionGNNeral
 
 
-def train(model, train_loader, device, learn_rate=0.01, epochs=100, test_loader=None):
+def train(model, train_loader, device, learn_rate=0.01, epochs=100, test_loader=None, early_stop_epochs=0):
     start = time.time()
 
     opt = torch.optim.Adam(model.parameters(), lr=learn_rate)
@@ -74,6 +74,9 @@ def train(model, train_loader, device, learn_rate=0.01, epochs=100, test_loader=
                 best_model = model.state_dict()
 
             pbar.set_description(f'loss={loss:8.3f} best=[epoch={best_epoch + 1:4} loss={best_loss:8.3f}]')
+
+        if early_stop_epochs and epoch - best_epoch > early_stop_epochs:
+            break
 
     end = time.time()
 
@@ -135,7 +138,7 @@ def hyperparam_tuning(drug_dim, prot_dim, train_loader, test_loader, device, epo
                             model = AttentionGNNeral(drug_dim, prot_dim, **model_config)
                             append_print(filename, str(model_config) + f" {learn_rate=}")
                             model_dict, results = train(model, train_loader, device, learn_rate=learn_rate,
-                                                        epochs=epochs, test_loader=test_loader)
+                                                        epochs=epochs, test_loader=test_loader, early_stop_epochs=20)
                             append_print(filename, str(results))
                             if results['test_mse'] < best_mse:
                                 best_mse = results['test_mse']
