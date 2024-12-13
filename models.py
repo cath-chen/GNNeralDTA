@@ -7,12 +7,16 @@ from torch_geometric.utils import to_dense_batch
 
 
 class GNN(nn.Module):
-    def __init__(self, in_channels, out_channels, hidden_dims=(), operator=gnn.GCNConv, dropout=0., **kwargs):
+    """
+    Flexible GNN block that works with multitude of convolution (message passing) functions.
+    """
+
+    def __init__(self, in_channels, out_channels, hidden_dims=(), conv=gnn.GINConv, dropout=0.):
         super(GNN, self).__init__()
 
         layer_dims = [in_channels] + hidden_dims + [out_channels]
         self.layers = nn.ModuleList([
-            operator(layer_dims[i], layer_dims[i + 1], **kwargs) for i in range(len(layer_dims) - 1)
+            conv(layer_dims[i], layer_dims[i + 1]) for i in range(len(layer_dims) - 1)
         ])
 
         self.dropout = nn.Dropout(dropout)
@@ -28,6 +32,10 @@ class GNN(nn.Module):
 
 
 class LinkAttention(nn.Module):
+    """
+    Linear attention layer from FusionDTA to compute linear self attention.
+    """
+
     def __init__(self, input_dim, n_heads):
         super(LinkAttention, self).__init__()
         self.query = nn.Linear(input_dim, n_heads)
@@ -48,9 +56,13 @@ class LinkAttention(nn.Module):
         return out, a
 
 
-class linear_attention(nn.Module):
+class LinearAttention(nn.Module):
+    """
+    Linear attention block computing the linear attention of drugs, proteins, and their concatenation.
+    """
+
     def __init__(self, input_dim, n_heads):
-        super(linear_attention, self).__init__()
+        super(LinearAttention, self).__init__()
         self.drug_attention = LinkAttention(input_dim, n_heads)
         self.prot_attention = LinkAttention(input_dim, n_heads)
         self.comb_attention = LinkAttention(input_dim, n_heads)
@@ -68,84 +80,81 @@ class linear_attention(nn.Module):
         return attention
 
 
-class cross_attention(nn.Module):
-    def __init__(self, dim, aggregation='max'):
-        super(cross_attention, self).__init__()
+class FullCrossAttention(nn.Module):
+    """
+    Computes full cross attention from drugs to proteins and proteins to drugs.
+    """
+
+    def __init__(self, dim):
+        super(FullCrossAttention, self).__init__()
         self.attention_1 = nn.MultiheadAttention(dim, dim, batch_first=True)
         self.attention_2 = nn.MultiheadAttention(dim, dim, batch_first=True)
-        self.aggregation = aggregation
 
     def forward(self, drug, prot, mask_drug=None, mask_prot=None):
         attention_1 = self.attention_1(drug, prot, prot, key_padding_mask=~mask_prot)[0]
         attention_2 = self.attention_2(prot, drug, drug, key_padding_mask=~mask_drug)[0]
 
-        if self.aggregation == 'mean':
-            attention_1 = torch.mean(attention_1, dim=1)
-            attention_2 = torch.mean(attention_2, dim=1)
-        elif self.aggregation == 'max':
-            attention_1 = torch.max(attention_1, dim=1)[0]
-            attention_2 = torch.max(attention_2, dim=1)[0]
+        attention_1 = torch.max(attention_1, dim=1)[0]
+        attention_2 = torch.max(attention_2, dim=1)[0]
 
         attention = torch.concat((attention_1, attention_2), dim=1)
 
         return attention
 
 
+# TODO: implement reduced cross attention (use pooling as sample)
+# TODO: implement graph pooling instead of attention
+
 class AttentionGNNeral(nn.Module):
-    def __init__(self, drug_dim, prot_dim, attention_dim, attention='cross', gnn_dropout=0., fnn_dropout=0.,
-                 time=False):
+    """
+    DTA prediction model employing GNNs for both drug and protein embeddings.
+    These are compared with an attention mechanism and the final output is predicted with a MLP.
+    """
+
+    def __init__(self, drug_dim, prot_dim, attention_dim, attention='linear', drug_gnn_layers=4, prot_gnn_layers=2,
+                 gnn_dimension=128, conv=gnn.GCNConv, gnn_dropout=0., fnn_dropout=0.):
         super(AttentionGNNeral, self).__init__()
 
         self.time = time
 
-        self.drug_gnn = GNN(drug_dim, attention_dim, hidden_dims=[64] * 0, dropout=gnn_dropout)
-        self.prot_gnn = GNN(prot_dim, attention_dim, hidden_dims=[64] * 0, dropout=gnn_dropout)
+        self.drug_gnn = GNN(drug_dim, attention_dim, hidden_dims=[gnn_dimension] * (drug_gnn_layers - 1), conv=conv,
+                            dropout=gnn_dropout)
+        self.prot_gnn = GNN(prot_dim, attention_dim, hidden_dims=[gnn_dimension] * (prot_gnn_layers - 1), conv=conv,
+                            dropout=gnn_dropout)
 
-        assert attention in ['cross', 'linear']
+        assert attention in ['cross', 'linear']  # TODO: reduced cross attention, graph pooling
         if attention == 'cross':
-            self.attention = cross_attention(attention_dim)
+            self.attention = FullCrossAttention(attention_dim)
             num_embeddings = 2
         elif attention == 'linear':
-            self.attention = linear_attention(attention_dim, n_heads=1)
+            self.attention = LinearAttention(attention_dim, n_heads=1)
             num_embeddings = 3
 
         self.classifier = nn.Sequential(
             nn.Linear(attention_dim * num_embeddings, 1024),
             nn.ReLU(),
             nn.Dropout(fnn_dropout),
-            nn.Linear(1024, 512),
+            nn.Linear(1024, 1024),
             nn.ReLU(),
             nn.Dropout(fnn_dropout),
-            nn.Linear(512, 256),
+            nn.Linear(1024, 256),
             nn.ReLU(),
             nn.Dropout(fnn_dropout),
-            nn.Linear(256, 1),
+            nn.Linear(256, 1)
         )
 
     def forward(self, drug, prot):
         x_drug, edge_index_drug, batch_drug = drug.x, drug.edge_index, drug.batch
         x_prot, edge_index_prot, batch_prot = prot.x, prot.edge_index, prot.batch
 
-        if self.time:
-            start = time.time()
-
         embedding_drug = self.drug_gnn(x_drug, edge_index_drug)
         embedding_prot = self.prot_gnn(x_prot, edge_index_prot)
 
-        if self.time:
-            print(f"gnn {time.time() - start:.2f}s")
-            start = time.time()
         embedding_drug, mask_drug = to_dense_batch(embedding_drug, batch_drug)
         embedding_prot, mask_prot = to_dense_batch(embedding_prot, batch_prot, max_num_nodes=1000)
 
         attention = self.attention(embedding_drug, embedding_prot, mask_drug, mask_prot)
 
-        if self.time:
-            print(f"attention {time.time() - start:.2f}s")
-            start = time.time()
-
         output = self.classifier(attention)
-        if self.time:
-            print(f"classifier {time.time() - start:.2f}s")
 
         return output

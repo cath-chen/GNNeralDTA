@@ -1,30 +1,35 @@
-import copy
+import argparse
+import os
+import time
 
+import numpy as np
 import torch
-import torch.nn.functional as F
+import torch_geometric.nn as gnn
 import tqdm
+from lifelines.utils import concordance_index as ci
+from sklearn.metrics import mean_squared_error as mse
 from torch import nn
 
 from create_data import create_dataloader
 from models import AttentionGNNeral
-from utils import *
 
 
-# TODO: k-fold
-
-def train(model, train_loader, device, learn_rate=0.01, epochs=100, n_splits=1):
-    model.train()
+def train(model, train_loader, device, learn_rate=0.01, epochs=100, test_loader=None):
+    start = time.time()
 
     opt = torch.optim.Adam(model.parameters(), lr=learn_rate)
 
     loss_fn = nn.MSELoss()
 
     model.to(device)
+    best_mse = 2 ** 16
+    best_ci = 2 ** 16
     best_loss = 2 ** 16
     best_epoch = 0
-    best_model = model
+    best_model = model.state_dict()
 
     for epoch in (pbar := tqdm.tqdm(range(epochs), total=epochs, unit='epochs', leave=False)):
+        model.train()
 
         total_loss = 0
         count = 0
@@ -45,39 +50,118 @@ def train(model, train_loader, device, learn_rate=0.01, epochs=100, n_splits=1):
             total_loss += loss.item()
             count += 1
 
-            pbar2.set_description(f'loss={loss.item():10.5f} rmse={rmse(pred, y):10.5f}')
+            pbar2.set_description(f'mse={loss.item():10.5f} avg_mse={total_loss / count}')
 
-        avg_loss = total_loss / count
+        loss = total_loss / count
 
-        if avg_loss < best_loss:
-            best_loss = avg_loss
-            best_epoch = epoch
-            best_model = copy.deepcopy(model)
+        if test_loader is not None:
+            ci_score, mse_score, _, _ = evaluate(model, test_loader, device)
 
-        pbar.set_description(f'avg_loss={total_loss / count:10.5f} best_loss={best_loss:10.5f} best_epoch={best_epoch:4}')
+            if mse_score < best_mse:
+                best_mse = mse_score
+                best_ci = ci_score
+                best_epoch = epoch
+                best_model = model.state_dict()
+                best_loss = loss
 
-    return best_model
+            pbar.set_description(
+                f'loss={loss:10.5f} best=[epoch={best_epoch:4} loss={best_loss:8.3f} mse={best_mse:8.3f} ci={best_ci:8.3f}]')
+
+        else:
+            if loss < best_loss:
+                best_loss = loss
+                best_epoch = epoch
+                best_model = model.state_dict()
+
+            pbar.set_description(f'loss={loss:10.5f} best=[epoch={best_epoch + 1:4} loss={best_loss:8.3f}]')
+
+    end = time.time()
+
+    model.load_state_dict(best_model)
+
+    train_ci, train_mse, _, _ = evaluate(model, train_loader, device)
+    results = {'runtime': end - start, 'train_ci': train_ci, 'train_mse': train_mse, 'best_epoch': best_epoch + 1}
+    if test_loader is not None:
+        test_ci, test_mse, _, _ = evaluate(model, test_loader, device)
+        results['test_ci'] = test_ci
+        results['test_mse'] = test_mse
+
+    return best_model, results
 
 
 def evaluate(model, dataloader, device):
     model.eval()
+    model.to(device)
     preds = []
     truth = []
     with torch.no_grad():
         for drug, target, y in dataloader:
             drug = drug.to(device)
             target = target.to(device)
+            y = y.view(-1, 1).to(device)
 
-            preds += model(drug, target).tolist()
-            truth += y.tolist()
+            preds += model(drug, target).detach().cpu().tolist()
+            truth += y.detach().cpu().tolist()
 
-    loss = F.l1_loss(torch.tensor(preds), torch.tensor(truth))
+    y = np.array(truth)
+    f = np.array(preds)
 
-    return loss, preds
+    ci_score = ci(y, f)
+    mse_score = mse(y, f)
+
+    return ci_score, mse_score, y, f
+
+
+def append_print(filename, text):
+    os.makedirs(os.path.dirname(filename), exist_ok=True)
+    with open(filename, 'a') as f:
+        f.write(text + '\n')
+    print(text)
+
+
+def hyperparam_tuning(drug_dim, prot_dim, train_loader, test_loader, device, epochs=100):
+    model_config = {}
+    best_model = None
+    best_mse = 2 ** 16
+    best_config = {}
+    best_results = {}
+    filename = f"tune/{time.strftime("%Y%m%d-%H%M%S")}.txt"
+    for model_config['prot_gnn_layers'] in [2, 3, 4]:
+        for model_config['drug_gnn_layers'] in [3, 5, 7]:
+            for model_config['attention_dim'] in [64, 128, 256]:
+                for model_config['gnn_dropout'] in [0.0, 0.1, 0.2]:
+                    for model_config['conv'] in [gnn.GCNConv, gnn.SAGEConv, gnn.GATConv, gnn.GraphConv]:
+                        for learn_rate in [0.01, 0.001, 0.0001, 0.00001]:
+                            model = AttentionGNNeral(drug_dim, prot_dim, **model_config)
+                            append_print(filename, str(model_config) + f" {learn_rate=}")
+                            model_dict, results = train(model, train_loader, device, learn_rate=learn_rate,
+                                                        epochs=epochs, test_loader=test_loader)
+                            append_print(filename, str(results))
+                            if results['test_mse'] < best_mse:
+                                best_mse = results['test_mse']
+                                best_config = model_config
+                                best_results = results
+                                model.load_state_dict(model_dict)
+                                best_model = model
+
+    append_print(filename, 'best_model:')
+    append_print(filename, str(best_config))
+    append_print(filename, str(best_results))
+
+    return best_config, best_results, best_model
 
 
 if __name__ == '__main__':
-    train_loader, test_loader = create_dataloader(batch_size=64)
+    # TODO: hyperparameter tuning
+    # TODO: conv layers
+
+    parser = argparse.ArgumentParser(prog="Attention! GNNeral")
+    parser.add_argument('-e', '--epochs', type=int, default=100)
+    parser.add_argument('-b', '--batchsize', type=int, default=64)
+    parser.add_argument('-t', '--tune', action='store_true')
+    args = parser.parse_args()
+
+    train_loader, test_loader = create_dataloader(batch_size=args.batchsize)
 
     for drugs, prots, y in train_loader:
         drug_dim = drugs.x.shape[1]
@@ -86,6 +170,14 @@ if __name__ == '__main__':
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-    model = AttentionGNNeral(drug_dim, prot_dim, 50, time=False, attention='linear')
+    if args.tune:
+        hyperparam_tuning(drug_dim, prot_dim, test_loader, test_loader, device, args.epochs)  # TODO: train_loader
 
-    train(model, train_loader, device)
+    else:
+        model_config = {'attention_dim': 50, 'attention': 'linear'}
+
+        model = AttentionGNNeral(drug_dim, prot_dim, **model_config)
+
+        _, results = train(model, test_loader, device, epochs=2, test_loader=test_loader)  # TODO: train_loader
+
+        print(results)
