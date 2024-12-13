@@ -128,7 +128,7 @@ def hyperparam_tuning(drug_dim, prot_dim, train_loader, test_loader, device, epo
     best_config = {}
     best_results = {}
     # filename = f"tune/{time.strftime("%Y%m%d-%H%M%S")}.txt"
-    filename = f"tune/results.txt"
+    filename = "tune/results.txt"
     for model_config['prot_gnn_layers'] in [2, 3, 4]:
         for model_config['drug_gnn_layers'] in [3, 5, 7]:
             for model_config['attention_dim'] in [64, 128, 256]:
@@ -136,7 +136,7 @@ def hyperparam_tuning(drug_dim, prot_dim, train_loader, test_loader, device, epo
                     for model_config['conv'] in [gnn.GCNConv, gnn.SAGEConv, gnn.GATConv, gnn.GraphConv]:
                         for learn_rate in [0.01, 0.001, 0.0001, 0.00001]:
                             model = AttentionGNNeral(drug_dim, prot_dim, **model_config)
-                            append_print(filename, str(model_config) + f" {learn_rate=}")
+                            append_print(filename, str(model_config) + " learn_rate=" + str(learn_rate))
                             model_dict, results = train(model, train_loader, device, learn_rate=learn_rate,
                                                         epochs=epochs, test_loader=test_loader)
                             append_print(filename, str(results))
