@@ -28,15 +28,13 @@ def train(model, train_loader, device, learn_rate=0.01, epochs=100, test_loader=
     best_epoch = 0
     best_model = model.state_dict()
 
-    pbar = tqdm.tqdm(range(epochs), total=epochs, unit='epochs', leave=False)
-    for epoch in pbar:
+    for epoch in (pbar := tqdm.tqdm(range(epochs), total=epochs, unit='epochs', leave=False)):
         model.train()
 
         total_loss = 0
         count = 0
 
-        pbar2 = tqdm.tqdm(train_loader, total=len(train_loader), unit='batches', leave=False)
-        for drug, prot, y in pbar2:
+        for drug, prot, y in (pbar2 := tqdm.tqdm(train_loader, total=len(train_loader), unit='batches', leave=False)):
             opt.zero_grad()
 
             drug = drug.to(device)
@@ -127,8 +125,7 @@ def hyperparam_tuning(drug_dim, prot_dim, train_loader, test_loader, device, epo
     best_mse = 2 ** 16
     best_config = {}
     best_results = {}
-    # filename = f"tune/{time.strftime("%Y%m%d-%H%M%S")}.txt"
-    filename = "tune/results.txt"
+    filename = f"tune/{time.strftime("%Y%m%d-%H%M%S")}.txt"
     for model_config['prot_gnn_layers'] in [2, 3, 4]:
         for model_config['drug_gnn_layers'] in [3, 5, 7]:
             for model_config['attention_dim'] in [64, 128, 256]:
@@ -136,7 +133,7 @@ def hyperparam_tuning(drug_dim, prot_dim, train_loader, test_loader, device, epo
                     for model_config['conv'] in [gnn.GCNConv, gnn.SAGEConv, gnn.GATConv, gnn.GraphConv]:
                         for learn_rate in [0.01, 0.001, 0.0001, 0.00001]:
                             model = AttentionGNNeral(drug_dim, prot_dim, **model_config)
-                            append_print(filename, str(model_config) + " learn_rate=" + str(learn_rate))
+                            append_print(filename, str(model_config) + f" {learn_rate=}")
                             model_dict, results = train(model, train_loader, device, learn_rate=learn_rate,
                                                         epochs=epochs, test_loader=test_loader)
                             append_print(filename, str(results))
