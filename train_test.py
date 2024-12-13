@@ -73,7 +73,7 @@ def train(model, train_loader, device, learn_rate=0.01, epochs=100, test_loader=
                 best_epoch = epoch
                 best_model = model.state_dict()
 
-            pbar.set_description(f'loss={loss:10.5f} best=[epoch={best_epoch + 1:4} loss={best_loss:8.3f}]')
+            pbar.set_description(f'loss={loss:8.3f} best=[epoch={best_epoch + 1:4} loss={best_loss:8.3f}]')
 
     end = time.time()
 
@@ -125,7 +125,7 @@ def hyperparam_tuning(drug_dim, prot_dim, train_loader, test_loader, device, epo
     best_mse = 2 ** 16
     best_config = {}
     best_results = {}
-    filename = "tune/{time.strftime("%Y%m%d-%H%M%S")}.txt"
+    filename = f"tune/{time.strftime('%Y%m%d-%H%M%S')}.txt"
     for model_config['prot_gnn_layers'] in [2, 3, 4]:
         for model_config['drug_gnn_layers'] in [3, 5, 7]:
             for model_config['attention_dim'] in [64, 128, 256]:
