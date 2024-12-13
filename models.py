@@ -111,7 +111,7 @@ class AttentionGNNeral(nn.Module):
     These are compared with an attention mechanism and the final output is predicted with a MLP.
     """
 
-    def __init__(self, drug_dim, prot_dim, attention_dim, attention='linear', drug_gnn_layers=4, prot_gnn_layers=2,
+    def __init__(self, drug_dim, prot_dim, attention_dim=128, attention='linear', drug_gnn_layers=4, prot_gnn_layers=2,
                  gnn_dimension=128, conv=gnn.GCNConv, gnn_dropout=0., fnn_dropout=0.):
         super(AttentionGNNeral, self).__init__()
 
