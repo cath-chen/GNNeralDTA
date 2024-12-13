@@ -125,7 +125,7 @@ def hyperparam_tuning(drug_dim, prot_dim, train_loader, test_loader, device, epo
     best_mse = 2 ** 16
     best_config = {}
     best_results = {}
-    filename = f"tune/{time.strftime("%Y%m%d-%H%M%S")}.txt"
+    filename = "tune/{time.strftime("%Y%m%d-%H%M%S")}.txt"
     for model_config['prot_gnn_layers'] in [2, 3, 4]:
         for model_config['drug_gnn_layers'] in [3, 5, 7]:
             for model_config['attention_dim'] in [64, 128, 256]:
