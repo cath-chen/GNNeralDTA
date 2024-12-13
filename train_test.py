@@ -152,9 +152,6 @@ def hyperparam_tuning(drug_dim, prot_dim, train_loader, test_loader, device, epo
 
 
 if __name__ == '__main__':
-    # TODO: hyperparameter tuning
-    # TODO: conv layers
-
     parser = argparse.ArgumentParser(prog="Attention! GNNeral")
     parser.add_argument('-e', '--epochs', type=int, default=100)
     parser.add_argument('-b', '--batchsize', type=int, default=64)
@@ -171,13 +168,11 @@ if __name__ == '__main__':
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
     if args.tune:
-        hyperparam_tuning(drug_dim, prot_dim, test_loader, test_loader, device, args.epochs)  # TODO: train_loader
+        hyperparam_tuning(drug_dim, prot_dim, train_loader, test_loader, device, args.epochs)
 
     else:
-        model_config = {'attention_dim': 50, 'attention': 'linear'}
+        model = AttentionGNNeral(drug_dim, prot_dim)
 
-        model = AttentionGNNeral(drug_dim, prot_dim, **model_config)
-
-        _, results = train(model, test_loader, device, epochs=2, test_loader=test_loader)  # TODO: train_loader
+        _, results = train(model, train_loader, device, epochs=args.epochs, test_loader=test_loader)
 
         print(results)
