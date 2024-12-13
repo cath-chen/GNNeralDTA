@@ -50,7 +50,7 @@ def train(model, train_loader, device, learn_rate=0.01, epochs=100, test_loader=
             total_loss += loss.item()
             count += 1
 
-            pbar2.set_description(f'mse={loss.item():6.3f} avg_mse={total_loss / count:6.3}')
+            pbar2.set_description(f'mse={loss.item():6.3f} avg_mse={total_loss / count:6.3f}')
 
         loss = total_loss / count
 
