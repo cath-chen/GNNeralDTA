@@ -1,5 +1,3 @@
-import time
-
 import torch
 from torch import nn
 from torch_geometric import nn as gnn
@@ -39,7 +37,6 @@ class LinkAttention(nn.Module):
     def __init__(self, input_dim, n_heads):
         super(LinkAttention, self).__init__()
         self.query = nn.Linear(input_dim, n_heads)
-        # self.value = nn.Linear(input_dim, input_dim)
         self.softmax = nn.Softmax(dim=-1)
 
     def forward(self, x, masks):
@@ -50,7 +47,6 @@ class LinkAttention(nn.Module):
         e = torch.where(masks > 0.5, query, minus_inf)  # (B,heads,seq_len)
         a = self.softmax(e)
 
-        # out = torch.matmul(a, value).view(query.shape[0], -1)
         out = torch.matmul(a, value)
         out = torch.sum(out, dim=1).squeeze()
         return out, a
@@ -85,10 +81,10 @@ class FullCrossAttention(nn.Module):
     Computes full cross attention from drugs to proteins and proteins to drugs.
     """
 
-    def __init__(self, dim):
+    def __init__(self, dim, n_heads=1):
         super(FullCrossAttention, self).__init__()
-        self.attention_1 = nn.MultiheadAttention(dim, dim, batch_first=True)
-        self.attention_2 = nn.MultiheadAttention(dim, dim, batch_first=True)
+        self.attention_1 = nn.MultiheadAttention(dim, n_heads, batch_first=True)
+        self.attention_2 = nn.MultiheadAttention(dim, n_heads, batch_first=True)
 
     def forward(self, drug, prot, mask_drug=None, mask_prot=None):
         attention_1 = self.attention_1(drug, prot, prot, key_padding_mask=~mask_prot)[0]
@@ -102,29 +98,24 @@ class FullCrossAttention(nn.Module):
         return attention
 
 
-# TODO: implement reduced cross attention (use pooling as sample)
-# TODO: implement graph pooling instead of attention
-
 class AttentionGNNeral(nn.Module):
     """
     DTA prediction model employing GNNs for both drug and protein embeddings.
     These are compared with an attention mechanism and the final output is predicted with a MLP.
     """
 
-    def __init__(self, drug_dim, prot_dim, attention_dim=128, attention='linear', drug_gnn_layers=5, prot_gnn_layers=4,
-                 gnn_dimension=128, conv=gnn.GCNConv, gnn_dropout=0., fnn_dropout=0., **kwargs):
+    def __init__(self, drug_dim, prot_dim, attention_dim=128, attention='linear', drug_gnn_layers=3, prot_gnn_layers=2,
+                 gnn_dimension=128, conv=gnn.GCNConv, gnn_dropout=0., fnn_dropout=0., n_heads=1, **kwargs):
         super(AttentionGNNeral, self).__init__()
-
-        self.time = time
 
         self.drug_gnn = GNN(drug_dim, attention_dim, hidden_dims=[gnn_dimension] * (drug_gnn_layers - 1), conv=conv,
                             dropout=gnn_dropout)
         self.prot_gnn = GNN(prot_dim, attention_dim, hidden_dims=[gnn_dimension] * (prot_gnn_layers - 1), conv=conv,
                             dropout=gnn_dropout)
 
-        assert attention in ['cross', 'linear']  # TODO: reduced cross attention, graph pooling
+        assert attention in ['cross', 'linear']
         if attention == 'cross':
-            self.attention = FullCrossAttention(attention_dim)
+            self.attention = FullCrossAttention(attention_dim, n_heads=n_heads)
             num_embeddings = 2
         elif attention == 'linear':
             self.attention = LinearAttention(attention_dim, n_heads=1)

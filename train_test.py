@@ -123,49 +123,17 @@ def append_print(filename, text):
     print(text)
 
 
-def grid_search(drug_dim, prot_dim, train_loader, test_loader, device, epochs=100):
-    model_config = {}
-    best_model = None
-    best_mse = 2 ** 16
-    best_config = {}
-    best_results = {}
-    filename = f"tune/{time.strftime('%Y%m%d-%H%M%S')}.txt"
-    for model_config['prot_gnn_layers'] in [2, 3, 4]:
-        for model_config['drug_gnn_layers'] in [3, 5, 7]:
-            for model_config['attention_dim'] in [64, 128, 256]:
-                for model_config['gnn_dropout'] in [0.0, 0.1, 0.2]:
-                    for model_config['conv'] in [gnn.GCNConv, gnn.SAGEConv, gnn.GATConv, gnn.GraphConv]:
-                        for learn_rate in [0.01, 0.001, 0.0001, 0.00001]:
-                            model = AttentionGNNeral(drug_dim, prot_dim, **model_config)
-                            append_print(filename, str(model_config) + f" {learn_rate=}")
-                            model_dict, results = train(model, train_loader, device, learn_rate=learn_rate,
-                                                        epochs=epochs, test_loader=test_loader, early_stop_epochs=50)
-                            append_print(filename, str(results))
-                            if results['test_mse'] < best_mse:
-                                best_mse = results['test_mse']
-                                best_config = model_config
-                                best_results = results
-                                model.load_state_dict(model_dict)
-                                best_model = model
-
-    append_print(filename, 'best_model:')
-    append_print(filename, str(best_config))
-    append_print(filename, str(best_results))
-
-    return best_config, best_results, best_model
-
-
 # use this, more efficient:
-def smart_tune(drug_dim, prot_dim, train_loader, test_loader, device, epochs=100, test_attention=False):
+def smart_tune(drug_dim, prot_dim, train_loader, test_loader, device, epochs=100, test_attention=True):
     filename = f"tune/{time.strftime('%Y%m%d-%H%M%S')}.txt"
-    params = {'prot_gnn_layers': [2, 4, 6], 'drug_gnn_layers': [3, 5, 7], 'attention_dim': [64, 128, 256],
+    params = {'learn_rate': [0.001, 0.0001, 0.00001], 'attention_dim': [64, 128, 256],
               'conv': [gnn.GCNConv, gnn.SAGEConv, gnn.GraphConv, gnn.GATConv],
-              'learn_rate': [0.01, 0.001, 0.0001, 0.00001], 'gnn_dropout': [0.0, 0.1, 0.2],
-              'fnn_dropout': [0.0, 0.1, 0.2]}
-    config = {'learn_rate': 0.001}
+              'prot_gnn_layers': [2, 4, 6], 'drug_gnn_layers': [3, 5, 7],
+              'gnn_dropout': [0.0, 0.1, 0.2], 'fnn_dropout': [0.0, 0.1, 0.2]}
+    config = {'learn_rate': 0.001, 'n_heads': 4}
     prev_config = {}
     count = 0
-    while config != prev_config and count <= 5:  # stop once the model is not changing  anymore
+    while config != prev_config and count < 2:  # stop once the model is not changing  anymore
         count += 1
         prev_config = config.copy()
         for key in params:
@@ -183,11 +151,26 @@ def smart_tune(drug_dim, prot_dim, train_loader, test_loader, device, epochs=100
                     best_value = config[key]
             config[key] = best_value
 
+    config['attention'] = 'cross'
+    best_mse = 2 ** 16
+    best_value = 1
+    for config['num_heads'] in [1, 4, 16]:
+        append_print(filename, str(config))
+        model = AttentionGNNeral(drug_dim, prot_dim, **config)
+        _, results = train(model, train_loader, device, learn_rate=config['learn_rate'],
+                           test_loader=test_loader, early_stop_epochs=epochs // 3, epochs=epochs)
+        results = {key: round(value, 3) for key, value in results.items()}
+        append_print(filename, str(results))
+        if results['test_mse'] < best_mse:
+            best_mse = results['test_mse']
+            best_value = config['num_heads']
+    config['num_heads'] = best_value
+
     if test_attention:
         for config['attention'] in ['linear', 'cross']:
             model = AttentionGNNeral(drug_dim, prot_dim, **config)
             _, results = train(model, train_loader, device, learn_rate=config['learn_rate'],
-                               test_loader=test_loader, early_stop_epochs=epochs // 3 * 2, epochs=epochs * 2)
+                               test_loader=test_loader, early_stop_epochs=epochs, epochs=epochs * 3)
             append_print(filename, str(config))
             append_print(filename, str(results))
 
@@ -196,7 +179,6 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(prog="Attention! GNNeral")
     parser.add_argument('-e', '--epochs', type=int, default=100)
     parser.add_argument('-b', '--batchsize', type=int, default=64)
-    parser.add_argument('-g', '--grid', action='store_true')
     parser.add_argument('-t', '--tune', action='store_true')
     parser.add_argument('-f', '--fast', action='store_true')
     args = parser.parse_args()
@@ -213,9 +195,6 @@ if __name__ == '__main__':
 
     if args.tune:
         smart_tune(drug_dim, prot_dim, train_loader, test_loader, device, args.epochs)
-
-    elif args.grid:
-        grid_search(drug_dim, prot_dim, train_loader, test_loader, device, args.epochs)
 
     else:
         model = AttentionGNNeral(drug_dim, prot_dim)
