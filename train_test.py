@@ -133,6 +133,7 @@ def smart_tune(drug_dim, prot_dim, train_loader, test_loader, device, epochs=100
     config = {'learn_rate': 0.001, 'n_heads': 4}
     prev_config = {}
     count = 0
+    append_print(filename, str(device))
     while config != prev_config and count < 2:  # stop once the model is not changing  anymore
         count += 1
         prev_config = config.copy()
