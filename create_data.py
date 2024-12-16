@@ -5,6 +5,7 @@ from collections import OrderedDict
 
 import numpy as np
 import torch
+from sklearn.model_selection import StratifiedKFold
 from torch.utils.data import DataLoader
 from torch.utils.data import Dataset
 from torch_geometric import data as DATA
@@ -40,7 +41,7 @@ class GraphPairDataset(Dataset):
         return drug, prot, affinity
 
 
-def create_dataloader(batch_size=64):
+def create_dataloader(batch_size=64, n_splits=1):
     print('convert data from DeepDTA for davis')
     fpath = 'data/davis/'
     train_fold = json.load(open(fpath + "folds/train_fold_setting1.txt"))
@@ -100,13 +101,32 @@ def create_dataloader(batch_size=64):
                                   edge_attr=torch.LongTensor(np.array(edge_weights))) for
                    key, (_, features, edge_index, edge_weights) in prots.items()}
 
-    train_dataset = GraphPairDataset(train_data, drug_graphs, prot_graphs)
-    test_dataset = GraphPairDataset(test_data, drug_graphs, prot_graphs)
+    train_data = np.array(train_data, dtype='O')
 
-    train_loader = DataLoader(dataset=train_dataset, batch_size=batch_size, shuffle=True, collate_fn=collate)
+    test_dataset = GraphPairDataset(test_data, drug_graphs, prot_graphs)
     test_loader = DataLoader(dataset=test_dataset, batch_size=batch_size, shuffle=False, collate_fn=collate)
 
-    return train_loader, test_loader
+    if n_splits == 1:
+        train_dataset = GraphPairDataset(train_data, drug_graphs, prot_graphs)
+        train_loader = DataLoader(dataset=train_dataset, batch_size=batch_size, shuffle=True, collate_fn=collate)
+
+        return train_loader, test_loader
+
+
+    else:
+        skf = StratifiedKFold(n_splits=n_splits)
+        splits = []
+        y = train_data[:, -1] == 5.0
+        for train_idx, val_idx in skf.split(np.zeros_like(y), y):
+            train_dataset = GraphPairDataset(train_data[train_idx], drug_graphs, prot_graphs)
+            train_loader = DataLoader(dataset=train_dataset, batch_size=batch_size, shuffle=True, collate_fn=collate)
+
+            val_dataset = GraphPairDataset(train_data[val_idx], drug_graphs, prot_graphs)
+            val_loader = DataLoader(dataset=val_dataset, batch_size=batch_size, shuffle=True, collate_fn=collate)
+
+            splits.append((train_loader, val_loader))
+
+        return splits, test_loader
 
 
 if __name__ == '__main__':

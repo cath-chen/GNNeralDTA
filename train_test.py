@@ -1,5 +1,6 @@
 import argparse
 import os
+import pickle
 import time
 
 import numpy as np
@@ -14,7 +15,7 @@ from create_data import create_dataloader
 from models import AttentionGNNeral
 
 
-def train(model, train_loader, device, learn_rate=0.01, epochs=100, test_loader=None, early_stop_epochs=0):
+def train(model, train_loader, device, learn_rate=0.01, epochs=100, val_loader=None, early_stop_epochs=0):
     start = time.time()
 
     opt = torch.optim.Adam(model.parameters(), lr=learn_rate)
@@ -54,8 +55,8 @@ def train(model, train_loader, device, learn_rate=0.01, epochs=100, test_loader=
 
         loss = total_loss / count
 
-        if test_loader is not None:
-            ci_score, mse_score, _, _ = evaluate(model, test_loader, device)
+        if val_loader is not None:
+            ci_score, mse_score, _, _ = evaluate(model, val_loader, device)
 
             if mse_score < best_mse:
                 best_mse = mse_score
@@ -85,12 +86,12 @@ def train(model, train_loader, device, learn_rate=0.01, epochs=100, test_loader=
 
     train_ci, train_mse, _, _ = evaluate(model, train_loader, device)
     results = {'runtime': end - start, 'train_ci': train_ci, 'train_mse': train_mse, 'best_epoch': best_epoch + 1}
-    if test_loader is not None:
-        test_ci, test_mse, _, _ = evaluate(model, test_loader, device)
+    if val_loader is not None:
+        test_ci, test_mse, _, _ = evaluate(model, val_loader, device)
         results['test_ci'] = test_ci
         results['test_mse'] = test_mse
 
-    return best_model, results
+    return model, results
 
 
 def evaluate(model, dataloader, device):
@@ -124,7 +125,7 @@ def append_print(filename, text):
 
 
 # use this, more efficient:
-def smart_tune(drug_dim, prot_dim, train_loader, test_loader, device, epochs=100, test_attention=True):
+def smart_tune(drug_dim, prot_dim, train_loader, val_loader, device, epochs=100, test_attention=True):
     filename = f"tune/{time.strftime('%Y%m%d-%H%M%S')}.txt"
     params = {'learn_rate': [0.001, 0.0001, 0.00001], 'attention_dim': [64, 128, 256],
               'conv': [gnn.GCNConv, gnn.SAGEConv, gnn.GraphConv, gnn.GATConv],
@@ -144,7 +145,7 @@ def smart_tune(drug_dim, prot_dim, train_loader, test_loader, device, epochs=100
                 append_print(filename, str(config))
                 model = AttentionGNNeral(drug_dim, prot_dim, **config)
                 _, results = train(model, train_loader, device, learn_rate=config['learn_rate'],
-                                   test_loader=test_loader, early_stop_epochs=epochs // 3, epochs=epochs)
+                                   val_loader=val_loader, early_stop_epochs=epochs // 3, epochs=epochs)
                 results = {key: round(value, 3) for key, value in results.items()}
                 append_print(filename, str(results))
                 if results['test_mse'] < best_mse:
@@ -159,7 +160,7 @@ def smart_tune(drug_dim, prot_dim, train_loader, test_loader, device, epochs=100
         append_print(filename, str(config))
         model = AttentionGNNeral(drug_dim, prot_dim, **config)
         _, results = train(model, train_loader, device, learn_rate=config['learn_rate'],
-                           test_loader=test_loader, early_stop_epochs=epochs // 3, epochs=epochs)
+                           val_loader=val_loader, early_stop_epochs=epochs // 3, epochs=epochs)
         results = {key: round(value, 3) for key, value in results.items()}
         append_print(filename, str(results))
         if results['test_mse'] < best_mse:
@@ -171,7 +172,7 @@ def smart_tune(drug_dim, prot_dim, train_loader, test_loader, device, epochs=100
         for config['attention'] in ['linear', 'cross']:
             model = AttentionGNNeral(drug_dim, prot_dim, **config)
             _, results = train(model, train_loader, device, learn_rate=config['learn_rate'],
-                               test_loader=test_loader, early_stop_epochs=epochs, epochs=epochs * 3)
+                               val_loader=val_loader, early_stop_epochs=epochs, epochs=epochs * 3)
             append_print(filename, str(config))
             append_print(filename, str(results))
 
@@ -181,12 +182,16 @@ if __name__ == '__main__':
     parser.add_argument('-e', '--epochs', type=int, default=100)
     parser.add_argument('-b', '--batchsize', type=int, default=64)
     parser.add_argument('-t', '--tune', action='store_true')
-    parser.add_argument('-f', '--fast', action='store_true')
+    parser.add_argument('-f', '--folds', type=int, default=1)
+    parser.add_argument('-l', '--load', type=str, default=None)
     args = parser.parse_args()
 
-    train_loader, test_loader = create_dataloader(batch_size=args.batchsize)
+    if args.tune or args.load is not None:
+        args.folds = 1
 
-    for drugs, prots, y in train_loader:
+    train_loader, test_loader = create_dataloader(batch_size=args.batchsize, n_splits=args.folds)
+
+    for drugs, prots, y in test_loader:
         drug_dim = drugs.x.shape[1]
         prot_dim = prots.x.shape[1]
         break
@@ -197,9 +202,55 @@ if __name__ == '__main__':
     if args.tune:
         smart_tune(drug_dim, prot_dim, train_loader, test_loader, device, args.epochs)
 
-    else:
+    elif args.load is not None:
         model = AttentionGNNeral(drug_dim, prot_dim)
 
-        _, results = train(model, train_loader, device, epochs=args.epochs, test_loader=test_loader)
+        with open(args.load, 'rb') as f:
+            model_dict = model.state_dict()
 
+        model.load_state_dict(model_dict)
+
+        train_ci, train_mse, _, _ = evaluate(model, train_loader, device)
+        test_ci, test_mse, _, _ = evaluate(model, test_loader, device)
+
+        print(f"{train_ci=} {train_mse=}")
+        print(f"{test_ci=} {test_mse=}")
+
+
+    elif args.folds == 1:
+        model = AttentionGNNeral(drug_dim, prot_dim)
+
+        model, results = train(model, train_loader, device, epochs=args.epochs)
+
+        print("train results:")
         print(results)
+
+        ci_score, mse_score, _, _ = evaluate(model, test_loader, device)
+        print(f"test ci score: {ci_score} test mse: {mse_score}")
+
+    else:
+        filename = f"train/{time.strftime('%Y%m%d-%H%M%S')}"
+
+        model = AttentionGNNeral(drug_dim, prot_dim)
+
+        splits = train_loader
+
+        models, ci_scores, mse_scores = [], [], []
+
+        for i, (train_loader, val_loader) in enumerate(splits):
+            model, _ = train(model, train_loader, device, epochs=args.epochs, val_loader=val_loader)
+
+            ci_score, mse_score, _, _ = evaluate(model, test_loader, device)
+
+            models.append(model)
+            ci_scores.append(ci_score)
+            mse_scores.append(mse_score)
+
+            append_print(filename + ".txt", f"split={i + 1} {ci_score=} {mse_score=}")
+
+        best_model = models[np.argmax(ci_scores)]
+
+        model_dict = best_model.state_dict()
+
+        with open(filename + "_model.pkl", 'wb') as f:
+            pickle.dump(model_dict, f)
