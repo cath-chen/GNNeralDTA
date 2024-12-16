@@ -127,7 +127,7 @@ class AttentionGNNeral(nn.Module):
     These are compared with an attention mechanism and the final output is predicted with a MLP.
     """
 
-    def __init__(self, drug_dim, prot_dim, attention_dim=256, attention='reduced-cross', drug_gnn_layers=5,
+    def __init__(self, drug_dim, prot_dim, attention_dim=128, attention='reduced-cross', drug_gnn_layers=5,
                  prot_gnn_layers=2, gnn_dimension=128, conv=gnn.GraphConv, gnn_dropout=0.1, fnn_dropout=0.3, n_heads=16,
                  **kwargs):
         super(AttentionGNNeral, self).__init__()
@@ -169,7 +169,7 @@ class AttentionGNNeral(nn.Module):
         embedding_prot = self.prot_gnn(x_prot, edge_index_prot)
 
         embedding_drug, mask_drug = to_dense_batch(embedding_drug, batch_drug)
-        embedding_prot, mask_prot = to_dense_batch(embedding_prot, batch_prot, max_num_nodes=1000)
+        embedding_prot, mask_prot = to_dense_batch(embedding_prot, batch_prot)
 
         attention = self.attention(embedding_drug, embedding_prot, mask_drug, mask_prot)
 
