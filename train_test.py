@@ -191,7 +191,7 @@ if __name__ == '__main__':
     parser.add_argument('-t', '--tune', action='store_true')
     parser.add_argument('-f', '--folds', type=int, default=1)
     parser.add_argument('-l', '--load', type=str, default=None)
-    parser.add_argument('a', '--attention', type=str, default='linear')
+    parser.add_argument('-a', '--attention', type=str, default='linear')
     args = parser.parse_args()
 
     if args.tune or args.load is not None:
