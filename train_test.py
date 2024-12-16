@@ -191,6 +191,7 @@ if __name__ == '__main__':
     parser.add_argument('-t', '--tune', action='store_true')
     parser.add_argument('-f', '--folds', type=int, default=1)
     parser.add_argument('-l', '--load', type=str, default=None)
+    parser.add_argument('a', '--attention', type=str, default='linear')
     args = parser.parse_args()
 
     if args.tune or args.load is not None:
@@ -210,7 +211,7 @@ if __name__ == '__main__':
         smart_tune(drug_dim, prot_dim, train_loader, test_loader, device, args.epochs, test_attention=True)
 
     elif args.load is not None:
-        model = AttentionGNNeral(drug_dim, prot_dim)
+        model = AttentionGNNeral(drug_dim, prot_dim, attention=args.attention)
 
         with open(args.load, 'rb') as f:
             model_dict = model.state_dict()
@@ -225,7 +226,7 @@ if __name__ == '__main__':
 
 
     elif args.folds == 1:
-        model = AttentionGNNeral(drug_dim, prot_dim)
+        model = AttentionGNNeral(drug_dim, prot_dim, attention=args.attention)
 
         model, results = train(model, train_loader, device, epochs=args.epochs)
 
@@ -236,38 +237,10 @@ if __name__ == '__main__':
         print(f"test ci score: {ci_score} test mse: {mse_score}")
 
     else:
-        filename = f"train/{time.strftime('%Y%m%d-%H%M%S')}_linear"
+        filename = f"train/{time.strftime('%Y%m%d-%H%M%S')}"
 
-        model = AttentionGNNeral(drug_dim, prot_dim, attention='linear')
-
-        splits = train_loader
-
-        models, ci_scores, mse_scores = [], [], []
-
-        for i, (train_loader, val_loader) in enumerate(splits):
-            model, results = train(model, train_loader, device, epochs=args.epochs, val_loader=val_loader)
-
-            ci_score = results['train_ci']
-            mse_score = results['train_mse']
-
-            test_ci_score, test_mse_score, _, _ = evaluate(model, test_loader, device)
-
-            models.append(model)
-            ci_scores.append(ci_score)
-            mse_scores.append(mse_score)
-
-            append_print(filename + ".txt",
-                         f"split={i + 1} val_ci_score={ci_score:.3f} val_mse_score={mse_score:.3f} {test_ci_score=:.3f} {test_mse_score=:.3f}")
-
-
-        model_dict = best_model.state_dict()
-
-        with open(filename + "_model.pkl", 'wb') as f:
-            pickle.dump(model_dict, f)
-
-        filename = f"train/{time.strftime('%Y%m%d-%H%M%S')}_cross"
-
-        model = AttentionGNNeral(drug_dim, prot_dim)
+        model = AttentionGNNeral(drug_dim, prot_dim, attention=args.attention)
+        append_print(filename, args.attention)
 
         splits = train_loader
 
