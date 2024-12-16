@@ -15,7 +15,7 @@ from create_data import create_dataloader
 from models import AttentionGNNeral
 
 
-def train(model, train_loader, device, learn_rate=0.01, epochs=100, val_loader=None, early_stop_epochs=0):
+def train(model, train_loader, device, learn_rate=0.001, epochs=100, val_loader=None, early_stop_epochs=0):
     start = time.time()
 
     opt = torch.optim.Adam(model.parameters(), lr=learn_rate)
@@ -130,12 +130,13 @@ def smart_tune(drug_dim, prot_dim, train_loader, val_loader, device, epochs=100,
     params = {'learn_rate': [0.001, 0.0001, 0.00001], 'attention_dim': [64, 128, 256],
               'conv': [gnn.GCNConv, gnn.SAGEConv, gnn.GraphConv, gnn.GATConv],
               'prot_gnn_layers': [2, 4, 6], 'drug_gnn_layers': [3, 5, 7],
-              'gnn_dropout': [0.0, 0.1, 0.2], 'fnn_dropout': [0.0, 0.1, 0.2]}
+              'gnn_dropout': [0.0, 0.1, 0.2], 'fnn_dropout': [0.0, 0.1, 0.2, 0.33, 0.5]}
+    params = {'fnn_dropout': [0.2, 0.33, 0.5]}
     config = {'learn_rate': 0.001, 'n_heads': 4}
     prev_config = {}
     count = 0
     append_print(filename, str(device))
-    while config != prev_config and count < 2:  # stop once the model is not changing  anymore
+    while config != prev_config and count < 1:  # stop once the model is not changing  anymore
         count += 1
         prev_config = config.copy()
         for key in params:
@@ -156,7 +157,7 @@ def smart_tune(drug_dim, prot_dim, train_loader, val_loader, device, epochs=100,
     config['attention'] = 'cross'
     best_mse = 2 ** 16
     best_value = 1
-    for config['num_heads'] in [1, 4, 16]:
+    for config['num_heads'] in [16, 64, 256]:
         append_print(filename, str(config))
         model = AttentionGNNeral(drug_dim, prot_dim, **config)
         _, results = train(model, train_loader, device, learn_rate=config['learn_rate'],
@@ -200,7 +201,7 @@ if __name__ == '__main__':
     print(device)
 
     if args.tune:
-        smart_tune(drug_dim, prot_dim, train_loader, test_loader, device, args.epochs)
+        smart_tune(drug_dim, prot_dim, train_loader, test_loader, device, args.epochs, test_attention=False)
 
     elif args.load is not None:
         model = AttentionGNNeral(drug_dim, prot_dim)

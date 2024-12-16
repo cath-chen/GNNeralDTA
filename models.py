@@ -97,6 +97,7 @@ class FullCrossAttention(nn.Module):
 
         return attention
 
+# {'learn_rate': 0.001, 'n_heads': 4, 'attention_dim': 256, 'conv': <class 'torch_geometric.nn.conv.graph_conv.GraphConv'>, 'prot_gnn_layers': 2, 'drug_gnn_layers': 5, 'gnn_dropout': 0.1, 'fnn_dropout': 0.2}
 
 class AttentionGNNeral(nn.Module):
     """
@@ -104,8 +105,8 @@ class AttentionGNNeral(nn.Module):
     These are compared with an attention mechanism and the final output is predicted with a MLP.
     """
 
-    def __init__(self, drug_dim, prot_dim, attention_dim=128, attention='linear', drug_gnn_layers=3, prot_gnn_layers=2,
-                 gnn_dimension=128, conv=gnn.GCNConv, gnn_dropout=0., fnn_dropout=0., n_heads=1, **kwargs):
+    def __init__(self, drug_dim, prot_dim, attention_dim=256, attention='linear', drug_gnn_layers=5, prot_gnn_layers=2,
+                 gnn_dimension=128, conv=gnn.GraphConv, gnn_dropout=0.1, fnn_dropout=0.2, n_heads=1, **kwargs):
         super(AttentionGNNeral, self).__init__()
 
         self.drug_gnn = GNN(drug_dim, attention_dim, hidden_dims=[gnn_dimension] * (drug_gnn_layers - 1), conv=conv,
