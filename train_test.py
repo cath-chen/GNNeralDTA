@@ -15,7 +15,7 @@ from create_data import create_dataloader
 from models import AttentionGNNeral
 
 
-def train(model, train_loader, device, learn_rate=0.001, epochs=100, val_loader=None, early_stop_epochs=0):
+def train(model, train_loader, device, learn_rate=0.001, epochs=100, val_loader=None, early_stop_epochs=100):
     start = time.time()
 
     opt = torch.optim.Adam(model.parameters(), lr=learn_rate)
