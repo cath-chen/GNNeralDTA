@@ -127,12 +127,25 @@ def append_print(filename, text):
 # use this, more efficient:
 def smart_tune(drug_dim, prot_dim, train_loader, val_loader, device, epochs=100, test_attention=True):
     filename = f"tune/{time.strftime('%Y%m%d-%H%M%S')}.txt"
+
+
+    if test_attention:
+        config = {}
+
+        for config['attention'] in ['linear', 'cross', 'reduced-cross']:
+            model = AttentionGNNeral(drug_dim, prot_dim, **config)
+            _, results = train(model, train_loader, device,
+                               val_loader=val_loader, early_stop_epochs=epochs // 3, epochs=epochs)
+            append_print(filename, str(config))
+            append_print(filename, str(results))
+
+        return
+
     params = {'learn_rate': [0.001, 0.0001, 0.00001], 'attention_dim': [64, 128, 256],
               'conv': [gnn.GCNConv, gnn.SAGEConv, gnn.GraphConv, gnn.GATConv],
               'prot_gnn_layers': [2, 4, 6], 'drug_gnn_layers': [3, 5, 7],
               'gnn_dropout': [0.0, 0.1, 0.2], 'fnn_dropout': [0.0, 0.1, 0.2, 0.33, 0.5]}
-    params = {'fnn_dropout': [0.2, 0.33, 0.5]}
-    config = {'learn_rate': 0.001, 'n_heads': 4}
+    config = {'learn_rate': 0.001}
     prev_config = {}
     count = 0
     append_print(filename, str(device))
@@ -169,13 +182,6 @@ def smart_tune(drug_dim, prot_dim, train_loader, val_loader, device, epochs=100,
             best_value = config['num_heads']
     config['num_heads'] = best_value
 
-    if test_attention:
-        for config['attention'] in ['linear', 'cross']:
-            model = AttentionGNNeral(drug_dim, prot_dim, **config)
-            _, results = train(model, train_loader, device, learn_rate=config['learn_rate'],
-                               val_loader=val_loader, early_stop_epochs=epochs, epochs=epochs * 3)
-            append_print(filename, str(config))
-            append_print(filename, str(results))
 
 
 if __name__ == '__main__':
@@ -201,7 +207,7 @@ if __name__ == '__main__':
     print(device)
 
     if args.tune:
-        smart_tune(drug_dim, prot_dim, train_loader, test_loader, device, args.epochs, test_attention=False)
+        smart_tune(drug_dim, prot_dim, train_loader, test_loader, device, args.epochs, test_attention=True)
 
     elif args.load is not None:
         model = AttentionGNNeral(drug_dim, prot_dim)
