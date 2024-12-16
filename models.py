@@ -97,7 +97,29 @@ class FullCrossAttention(nn.Module):
 
         return attention
 
-# {'learn_rate': 0.001, 'n_heads': 4, 'attention_dim': 256, 'conv': <class 'torch_geometric.nn.conv.graph_conv.GraphConv'>, 'prot_gnn_layers': 2, 'drug_gnn_layers': 5, 'gnn_dropout': 0.1, 'fnn_dropout': 0.2}
+
+class ReducedCrossAttention(nn.Module):
+    """
+    Computes cross attention from drugs to proteins and proteins to drugs
+    and uses graph pooling on the query to reduce complexity.
+    """
+
+    def __init__(self, dim, n_heads=1):
+        super(ReducedCrossAttention, self).__init__()
+        self.attention_1 = nn.MultiheadAttention(dim, n_heads, batch_first=True)
+        self.attention_2 = nn.MultiheadAttention(dim, n_heads, batch_first=True)
+
+    def forward(self, drug, prot, mask_drug=None, mask_prot=None):
+        drug_aggr = torch.max(drug, dim=1, keepdim=True)[0]
+        prot_aggr = torch.max(prot, dim=1, keepdim=True)[0]
+
+        attention_1 = self.attention_1(drug_aggr, prot, prot, key_padding_mask=~mask_prot)[0].squeeze()
+        attention_2 = self.attention_2(prot_aggr, drug, drug, key_padding_mask=~mask_drug)[0].squeeze()
+
+        attention = torch.concat((attention_1, attention_2), dim=1)
+
+        return attention
+
 
 class AttentionGNNeral(nn.Module):
     """
@@ -105,7 +127,8 @@ class AttentionGNNeral(nn.Module):
     These are compared with an attention mechanism and the final output is predicted with a MLP.
     """
 
-    def __init__(self, drug_dim, prot_dim, attention_dim=256, attention='linear', drug_gnn_layers=5, prot_gnn_layers=2,
+    def __init__(self, drug_dim, prot_dim, attention_dim=256, attention='reduced-cross', drug_gnn_layers=5,
+                 prot_gnn_layers=2,
                  gnn_dimension=128, conv=gnn.GraphConv, gnn_dropout=0.1, fnn_dropout=0.2, n_heads=1, **kwargs):
         super(AttentionGNNeral, self).__init__()
 
@@ -114,13 +137,16 @@ class AttentionGNNeral(nn.Module):
         self.prot_gnn = GNN(prot_dim, attention_dim, hidden_dims=[gnn_dimension] * (prot_gnn_layers - 1), conv=conv,
                             dropout=gnn_dropout)
 
-        assert attention in ['cross', 'linear']
+        assert attention in ['cross', 'linear', 'reduced-cross']
         if attention == 'cross':
             self.attention = FullCrossAttention(attention_dim, n_heads=n_heads)
             num_embeddings = 2
         elif attention == 'linear':
             self.attention = LinearAttention(attention_dim, n_heads=1)
             num_embeddings = 3
+        elif attention == 'reduced-cross':
+            self.attention = ReducedCrossAttention(attention_dim, n_heads=n_heads)
+            num_embeddings = 2
 
         self.classifier = nn.Sequential(
             nn.Linear(attention_dim * num_embeddings, 1024),
