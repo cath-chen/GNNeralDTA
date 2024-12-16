@@ -128,8 +128,8 @@ class AttentionGNNeral(nn.Module):
     """
 
     def __init__(self, drug_dim, prot_dim, attention_dim=256, attention='reduced-cross', drug_gnn_layers=5,
-                 prot_gnn_layers=2,
-                 gnn_dimension=128, conv=gnn.GraphConv, gnn_dropout=0.1, fnn_dropout=0.2, n_heads=1, **kwargs):
+                 prot_gnn_layers=2, gnn_dimension=128, conv=gnn.GraphConv, gnn_dropout=0.1, fnn_dropout=0.3, n_heads=16,
+                 **kwargs):
         super(AttentionGNNeral, self).__init__()
 
         self.drug_gnn = GNN(drug_dim, attention_dim, hidden_dims=[gnn_dimension] * (drug_gnn_layers - 1), conv=conv,

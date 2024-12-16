@@ -251,7 +251,7 @@ if __name__ == '__main__':
             mse_scores.append(mse_score)
 
             append_print(filename + ".txt",
-                         f"split={i + 1} val_ci_score={ci_score} val_mse_score={mse_score} {test_ci_score=} {test_mse_score=}")
+                         f"split={i + 1} val_ci_score={ci_score:.3f} val_mse_score={mse_score:.3f} {test_ci_score=:.3f} {test_mse_score=:.3f}")
 
         best_model = models[np.argmax(mse_scores)]
 
