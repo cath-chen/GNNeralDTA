@@ -142,14 +142,13 @@ def smart_tune(drug_dim, prot_dim, train_loader, val_loader, device, epochs=100,
 
     params = {'learn_rate': [0.001, 0.0001, 0.00001], 'attention_dim': [64, 128, 256],
               'conv': [gnn.GCNConv, gnn.SAGEConv, gnn.GraphConv, gnn.GATConv],
-              'prot_gnn_layers': [2, 4, 6], 'drug_gnn_layers': [3, 5, 7],
+              'prot_gnn_layers': [2, 4, 6], 'drug_gnn_layers': [3, 5, 7], 'n_heads': [1, 4, 8, 16, 32],
               'gnn_dropout': [0.0, 0.1, 0.2], 'fnn_dropout': [0.0, 0.1, 0.2, 0.33, 0.5]}
-    params = {'n_heads': [1, 4, 8, 16, 32]}
     config = {'learn_rate': 0.001}
     prev_config = {}
     count = 0
     append_print(filename, str(device))
-    while config != prev_config and count < 1:  # stop once the model is not changing  anymore
+    while config != prev_config and count < 2:
         count += 1
         prev_config = config.copy()
         for key in params:
@@ -236,9 +235,9 @@ if __name__ == '__main__':
         print(f"test ci score: {ci_score} test mse: {mse_score}")
 
     else:
-        filename = time.strftime('%Y%m%d-%H%M%S')
+        filename = f"train/{time.strftime('%Y%m%d-%H%M%S')}"
 
-        append_print(f"train/{filename}.txt", args.attention)
+        append_print(f"{filename}.txt", args.attention)
 
         splits = train_loader
 
@@ -258,10 +257,10 @@ if __name__ == '__main__':
             ci_scores.append(ci_score)
             mse_scores.append(mse_score)
 
-            append_print(f"train/{filename}.txt",
+            append_print(f"{filename}.txt",
                          f"fold={i + 1} val_ci_score={ci_score:.4f} val_mse_score={mse_score:.4f} {test_ci_score=:.4f} {test_mse_score=:.4f} best_epoch={results['best_epoch']:3} runtime={results['runtime']:7.2f}s")
 
-            with open(f"train/{filename}_fold_{i + 1}.pkl", 'wb') as f:
+            with open(f"{filename}_fold_{i + 1}.pkl", 'wb') as f:
                 pickle.dump(model.state_dict(), f)
 
-        append_print(f"train/{filename}.txt", f"best fold={np.argmax(ci_scores) + 1}")
+        append_print(f"{filename}.txt", f"best fold={np.argmax(ci_scores) + 1}")
