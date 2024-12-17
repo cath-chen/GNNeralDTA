@@ -125,7 +125,7 @@ def append_print(filename, text):
 
 
 # use this, more efficient:
-def smart_tune(drug_dim, prot_dim, train_loader, val_loader, device, epochs=100, test_attention=True):
+def smart_tune(drug_dim, prot_dim, train_loader, val_loader, device, epochs=100, test_attention=False):
     filename = f"tune/{time.strftime('%Y%m%d-%H%M%S')}.txt"
 
     if test_attention:
@@ -144,6 +144,7 @@ def smart_tune(drug_dim, prot_dim, train_loader, val_loader, device, epochs=100,
               'conv': [gnn.GCNConv, gnn.SAGEConv, gnn.GraphConv, gnn.GATConv],
               'prot_gnn_layers': [2, 4, 6], 'drug_gnn_layers': [3, 5, 7],
               'gnn_dropout': [0.0, 0.1, 0.2], 'fnn_dropout': [0.0, 0.1, 0.2, 0.33, 0.5]}
+    params = {'n_heads': [1, 4, 8, 16, 32]}
     config = {'learn_rate': 0.001}
     prev_config = {}
     count = 0
@@ -206,7 +207,7 @@ if __name__ == '__main__':
     print(device)
 
     if args.tune:
-        smart_tune(drug_dim, prot_dim, train_loader, test_loader, device, args.epochs, test_attention=True)
+        smart_tune(drug_dim, prot_dim, train_loader, test_loader, device, args.epochs, test_attention=False)
 
     elif args.load is not None:
         model = AttentionGNNeral(drug_dim, prot_dim, attention=args.attention)

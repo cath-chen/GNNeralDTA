@@ -38,10 +38,13 @@ class LinkAttention(nn.Module):
         super(LinkAttention, self).__init__()
         self.query = nn.Linear(input_dim, n_heads)
         self.softmax = nn.Softmax(dim=-1)
+        self.n_heads = n_heads
 
     def forward(self, x, masks):
         query = self.query(x).transpose(1, 2)
         value = x
+
+        masks = masks.unsqueeze(1).repeat(1, self.n_heads, 1)
 
         minus_inf = -9e15 * torch.ones_like(query)
         e = torch.where(masks > 0.5, query, minus_inf)  # (B,heads,seq_len)
@@ -142,7 +145,7 @@ class AttentionGNNeral(nn.Module):
             self.attention = FullCrossAttention(attention_dim, n_heads=n_heads)
             num_embeddings = 2
         elif attention == 'linear':
-            self.attention = LinearAttention(attention_dim, n_heads=1)
+            self.attention = LinearAttention(attention_dim, n_heads=n_heads)
             num_embeddings = 3
         elif attention == 'reduced-cross':
             self.attention = ReducedCrossAttention(attention_dim, n_heads=n_heads)
