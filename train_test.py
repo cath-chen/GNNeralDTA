@@ -258,10 +258,10 @@ if __name__ == '__main__':
             ci_scores.append(ci_score)
             mse_scores.append(mse_score)
 
-            append_print(f"fold/{filename}.txt",
+            append_print(f"train/{filename}.txt",
                          f"fold={i + 1} val_ci_score={ci_score:.4f} val_mse_score={mse_score:.4f} {test_ci_score=:.4f} {test_mse_score=:.4f} best_epoch={results['best_epoch']:3} runtime={results['runtime']:7.2f}s")
 
             with open(f"train/{filename}_fold_{i + 1}.pkl", 'wb') as f:
                 pickle.dump(model.state_dict(), f)
 
-        append_print(f"fold/{filename}.txt", f"best fold={np.argmax(ci_scores) + 1}")
+        append_print(f"train/{filename}.txt", f"best fold={np.argmax(ci_scores) + 1}")
