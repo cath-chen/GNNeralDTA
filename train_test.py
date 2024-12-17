@@ -128,7 +128,6 @@ def append_print(filename, text):
 def smart_tune(drug_dim, prot_dim, train_loader, val_loader, device, epochs=100, test_attention=True):
     filename = f"tune/{time.strftime('%Y%m%d-%H%M%S')}.txt"
 
-
     if test_attention:
         config = {}
 
@@ -183,7 +182,6 @@ def smart_tune(drug_dim, prot_dim, train_loader, val_loader, device, epochs=100,
     config['num_heads'] = best_value
 
 
-
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(prog="Attention! GNNeral")
     parser.add_argument('-e', '--epochs', type=int, default=100)
@@ -214,7 +212,7 @@ if __name__ == '__main__':
         model = AttentionGNNeral(drug_dim, prot_dim, attention=args.attention)
 
         with open(args.load, 'rb') as f:
-            model_dict = model.state_dict()
+            model_dict = pickle.load(f)
 
         model.load_state_dict(model_dict)
 
@@ -240,7 +238,7 @@ if __name__ == '__main__':
         filename = f"train/{time.strftime('%Y%m%d-%H%M%S')}"
 
         model = AttentionGNNeral(drug_dim, prot_dim, attention=args.attention)
-        append_print(filename, args.attention)
+        append_print(filename + '.txt', args.attention)
 
         splits = train_loader
 
@@ -259,7 +257,7 @@ if __name__ == '__main__':
             mse_scores.append(mse_score)
 
             append_print(filename + ".txt",
-                         f"split={i + 1} val_ci_score={ci_score:.3f} val_mse_score={mse_score:.3f} {test_ci_score=:.3f} {test_mse_score=:.3f}")
+                         f"split={i + 1} val_ci_score={ci_score:.4f} val_mse_score={mse_score:.4f} {test_ci_score=:.4f} {test_mse_score=:.4f} best_epoch={results['best_epoch']:3} runtime={results['runtime']:7.2f}s")
 
         best_model = models[np.argmax(mse_scores)]
 
