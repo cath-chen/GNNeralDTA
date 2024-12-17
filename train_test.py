@@ -237,7 +237,6 @@ if __name__ == '__main__':
     else:
         filename = f"train/{time.strftime('%Y%m%d-%H%M%S')}"
 
-        model = AttentionGNNeral(drug_dim, prot_dim, attention=args.attention)
         append_print(filename + '.txt', args.attention)
 
         splits = train_loader
@@ -245,6 +244,8 @@ if __name__ == '__main__':
         models, ci_scores, mse_scores = [], [], []
 
         for i, (train_loader, val_loader) in enumerate(splits):
+            model = AttentionGNNeral(drug_dim, prot_dim, attention=args.attention)
+
             model, results = train(model, train_loader, device, epochs=args.epochs, val_loader=val_loader)
 
             ci_score = results['train_ci']
