@@ -219,8 +219,8 @@ if __name__ == '__main__':
         train_ci, train_mse, _, _ = evaluate(model, train_loader, device)
         test_ci, test_mse, _, _ = evaluate(model, test_loader, device)
 
-        print(f"{train_ci=} {train_mse=}")
-        print(f"{test_ci=} {test_mse=}")
+        print(f"{train_ci=:.4f} {train_mse=:.4f}")
+        print(f"{test_ci=:.4f} {test_mse=:.4f}")
 
 
     elif args.folds == 1:
@@ -259,7 +259,7 @@ if __name__ == '__main__':
             append_print(filename + ".txt",
                          f"split={i + 1} val_ci_score={ci_score:.4f} val_mse_score={mse_score:.4f} {test_ci_score=:.4f} {test_mse_score=:.4f} best_epoch={results['best_epoch']:3} runtime={results['runtime']:7.2f}s")
 
-        best_model = models[np.argmax(mse_scores)]
+        best_model = models[np.argmin(mse_scores)]
 
         model_dict = best_model.state_dict()
 
