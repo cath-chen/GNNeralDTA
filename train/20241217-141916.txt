@@ -1,0 +1,7 @@
+linear
+fold=1 val_ci_score=0.9730 val_mse_score=0.0318 test_ci_score=0.8804 test_mse_score=0.2389 best_epoch=333 runtime=2814.44s
+fold=2 val_ci_score=0.9776 val_mse_score=0.0333 test_ci_score=0.8862 test_mse_score=0.2409 best_epoch=311 runtime=2655.32s
+fold=3 val_ci_score=0.9754 val_mse_score=0.0344 test_ci_score=0.8815 test_mse_score=0.2550 best_epoch=324 runtime=2728.30s
+fold=4 val_ci_score=0.9750 val_mse_score=0.0350 test_ci_score=0.8908 test_mse_score=0.2454 best_epoch=318 runtime=2687.85s
+fold=5 val_ci_score=0.9763 val_mse_score=0.0380 test_ci_score=0.8870 test_mse_score=0.2514 best_epoch=301 runtime=2581.35s
+best fold=2
