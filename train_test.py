@@ -236,9 +236,9 @@ if __name__ == '__main__':
         print(f"test ci score: {ci_score} test mse: {mse_score}")
 
     else:
-        filename = f"train/{time.strftime('%Y%m%d-%H%M%S')}"
+        filename = time.strftime('%Y%m%d-%H%M%S')
 
-        append_print(filename + '.txt', args.attention)
+        append_print(f"train/{filename}.txt", args.attention)
 
         splits = train_loader
 
@@ -258,12 +258,10 @@ if __name__ == '__main__':
             ci_scores.append(ci_score)
             mse_scores.append(mse_score)
 
-            append_print(filename + ".txt",
-                         f"split={i + 1} val_ci_score={ci_score:.4f} val_mse_score={mse_score:.4f} {test_ci_score=:.4f} {test_mse_score=:.4f} best_epoch={results['best_epoch']:3} runtime={results['runtime']:7.2f}s")
+            append_print(f"fold/{filename}.txt",
+                         f"fold={i + 1} val_ci_score={ci_score:.4f} val_mse_score={mse_score:.4f} {test_ci_score=:.4f} {test_mse_score=:.4f} best_epoch={results['best_epoch']:3} runtime={results['runtime']:7.2f}s")
 
-        best_model = models[np.argmax(ci_scores)]
+            with open(f"train/{filename}_fold_{i + 1}.pkl", 'wb') as f:
+                pickle.dump(model.state_dict(), f)
 
-        model_dict = best_model.state_dict()
-
-        with open(filename + "_model.pkl", 'wb') as f:
-            pickle.dump(model_dict, f)
+        append_print(f"fold/{filename}.txt", f"best fold={np.argmax(ci_scores) + 1}")
