@@ -15,7 +15,7 @@ from create_data import create_dataloader
 from models import AttentionGNNeral
 
 
-def train(model, train_loader, device, learn_rate=0.001, epochs=100, val_loader=None, early_stop_epochs=100):
+def train(model, train_loader, device, learn_rate=0.0005, epochs=100, val_loader=None, early_stop_epochs=100):
     start = time.time()
 
     opt = torch.optim.Adam(model.parameters(), lr=learn_rate)
@@ -185,7 +185,7 @@ def smart_tune(drug_dim, prot_dim, train_loader, val_loader, device, epochs=100,
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(prog="Attention! GNNeral")
     parser.add_argument('-e', '--epochs', type=int, default=100)
-    parser.add_argument('-b', '--batchsize', type=int, default=64)
+    parser.add_argument('-b', '--batchsize', type=int, default=128)
     parser.add_argument('-t', '--tune', action='store_true')
     parser.add_argument('-f', '--folds', type=int, default=1)
     parser.add_argument('-l', '--load', type=str, default=None)
@@ -259,7 +259,7 @@ if __name__ == '__main__':
             append_print(filename + ".txt",
                          f"split={i + 1} val_ci_score={ci_score:.4f} val_mse_score={mse_score:.4f} {test_ci_score=:.4f} {test_mse_score=:.4f} best_epoch={results['best_epoch']:3} runtime={results['runtime']:7.2f}s")
 
-        best_model = models[np.argmin(mse_scores)]
+        best_model = models[np.argmin(ci_scores)]
 
         model_dict = best_model.state_dict()
 
